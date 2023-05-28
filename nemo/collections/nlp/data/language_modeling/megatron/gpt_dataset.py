@@ -81,16 +81,16 @@ def build_dataset(cfg, trainer, data_prefix, data_impl, num_samples, seq_length,
 
 
 def build_train_valid_test_datasets(
-    cfg,
-    trainer,
-    data_prefix,
-    data_impl,
-    splits_string,
-    train_valid_test_num_samples,
-    seq_length,
-    seed,
-    skip_warmup,
-    tokenizer,
+        cfg,
+        trainer,
+        data_prefix,
+        data_impl,
+        splits_string,
+        train_valid_test_num_samples,
+        seq_length,
+        seed,
+        skip_warmup,
+        tokenizer,
 ):
     if data_impl in ['mock']:
         logging.info('Initializing mock GPT dataset for train, validate, and test')
@@ -100,16 +100,16 @@ def build_train_valid_test_datasets(
         if tokenizer is None:
             # Vocabulary size is inferred from tokenizer.
             raise ValueError("Tokenizer is required for a mock GPT dataset")
-        train_ds = MockGPTDataset(cfg, tokenizer, "train", int(train_valid_test_num_samples[0]), seq_length, seed,)
-        valid_ds = MockGPTDataset(cfg, tokenizer, "valid", int(train_valid_test_num_samples[1]), seq_length, seed,)
-        test_ds = MockGPTDataset(cfg, tokenizer, "test", int(train_valid_test_num_samples[2]), seq_length, seed,)
+        train_ds = MockGPTDataset(cfg, tokenizer, "train", int(train_valid_test_num_samples[0]), seq_length, seed, )
+        valid_ds = MockGPTDataset(cfg, tokenizer, "valid", int(train_valid_test_num_samples[1]), seq_length, seed, )
+        test_ds = MockGPTDataset(cfg, tokenizer, "test", int(train_valid_test_num_samples[2]), seq_length, seed, )
         return train_ds, valid_ds, test_ds
 
     if isinstance(data_prefix, DictConfig):
         assert (
-            data_prefix.get('train') is not None
-            and data_prefix.get('test') is not None
-            and data_prefix.get('validation') is not None
+                data_prefix.get('train') is not None
+                and data_prefix.get('test') is not None
+                and data_prefix.get('validation') is not None
         ), f"Data prefix dictionary should have train, test and validation keys.  data_prefix currently has only {data_prefix.keys()}"
         if cfg.data.splits_string is not None:
             logging.warning(cfg.data.splits_string + " ignored since data prefix is of type dictionary.")
@@ -213,16 +213,16 @@ def build_train_valid_test_datasets(
 
 
 def _build_train_valid_test_datasets(
-    cfg,
-    trainer,
-    data_prefix,
-    data_impl,
-    splits_string,
-    train_valid_test_num_samples,
-    seq_length,
-    seed,
-    skip_warmup,
-    tokenizer,
+        cfg,
+        trainer,
+        data_prefix,
+        data_impl,
+        splits_string,
+        train_valid_test_num_samples,
+        seq_length,
+        seed,
+        skip_warmup,
+        tokenizer,
 ):
     """Build train, valid, and test datasets."""
 
@@ -290,18 +290,18 @@ def get_indexed_dataset_(data_prefix, data_impl, skip_warmup, delay_data_mmap=Fa
 
 class GPTDataset(Dataset):
     def __init__(
-        self,
-        cfg,
-        trainer,
-        tokenizer,
-        name,
-        data_prefix,
-        documents,
-        indexed_dataset,
-        num_samples,
-        seq_length,
-        seed,
-        drop_last=True,
+            self,
+            cfg,
+            trainer,
+            tokenizer,
+            name,
+            data_prefix,
+            documents,
+            indexed_dataset,
+            num_samples,
+            seq_length,
+            seed,
+            drop_last=True,
     ):
         if not HAVE_MEGATRON_CORE:
             raise ImportError(
@@ -393,7 +393,7 @@ class GPTDataset(Dataset):
             sample = np.concatenate(sample_list)
         if len(sample) != (self.seq_length + self.add_extra_token):
             logging.info(
-                F' > WARNING: Got sample of length: {len(sample)} for sequence length={self.seq_length+self.add_extra_token}, padding the sample to match sequence length'
+                F' > WARNING: Got sample of length: {len(sample)} for sequence length={self.seq_length + self.add_extra_token}, padding the sample to match sequence length'
             )
             sample = np.array(sample, dtype=np.int64)
             sample = np.pad(
@@ -444,7 +444,7 @@ class GPTDataset(Dataset):
 
 class MockGPTDataset(Dataset):
     def __init__(
-        self, cfg, tokenizer, name, num_samples, seq_length, seed,
+            self, cfg, tokenizer, name, num_samples, seq_length, seed,
     ):
         if not HAVE_MEGATRON_CORE:
             raise ImportError(
@@ -487,7 +487,7 @@ class MockGPTDataset(Dataset):
 
 @torch.no_grad()
 def _create_ltor_masks_and_position_ids(
-    tokens: torch.Tensor, eod_token: int, reset_position_ids: bool, reset_attention_mask: bool, eod_mask_loss: bool,
+        tokens: torch.Tensor, eod_token: int, reset_position_ids: bool, reset_attention_mask: bool, eod_mask_loss: bool,
 ):
     """Create `attention_mask`, `loss_mask`, and `position_ids`.
 
@@ -525,9 +525,9 @@ def _create_ltor_masks_and_position_ids(
         for j in range(eod_index.numel()):
             i = eod_index[j]
             if reset_attention_mask:
-                attention_mask[0, (i + 1) :, : (i + 1)] = 0
+                attention_mask[0, (i + 1):, : (i + 1)] = 0
             if reset_position_ids:
-                position_ids[(i + 1) :] -= i + 1 - prev_index
+                position_ids[(i + 1):] -= i + 1 - prev_index
                 prev_index = i + 1
     # Convert attention mask to binary.
     attention_mask = attention_mask < 0.5
@@ -535,18 +535,18 @@ def _create_ltor_masks_and_position_ids(
 
 
 def _build_index_mappings(
-    name,
-    data_prefix,
-    documents,
-    sizes,
-    num_samples,
-    seq_length,
-    seed,
-    index_mapping_dir: str = None,
-    drop_last: bool = True,
-    add_extra_token: int = 1,
-    shuffle_documents: bool = True,
-    exchange_indices_distributed: bool = False,
+        name,
+        data_prefix,
+        documents,
+        sizes,
+        num_samples,
+        seq_length,
+        seed,
+        index_mapping_dir: str = None,
+        drop_last: bool = True,
+        add_extra_token: int = 1,
+        shuffle_documents: bool = True,
+        exchange_indices_distributed: bool = False,
 ):
     """Build doc-idx, sample-idx, and shuffle-idx.
     doc-idx: is an array (ordered) of documents to be used in training.
@@ -577,9 +577,9 @@ def _build_index_mappings(
     if torch.distributed.get_rank() == 0:
         using_cached_indices = True
         if (
-            (not os.path.isfile(doc_idx_filename))
-            or (not os.path.isfile(sample_idx_filename))
-            or (not os.path.isfile(shuffle_idx_filename))
+                (not os.path.isfile(doc_idx_filename))
+                or (not os.path.isfile(sample_idx_filename))
+                or (not os.path.isfile(shuffle_idx_filename))
         ):
             using_cached_indices = False
             logging.info(' > WARNING: could not find index map files, building ' 'the indices on rank 0 ...')
@@ -596,13 +596,13 @@ def _build_index_mappings(
             else:
                 # Get the number of samples for the last epoch
                 num_samples_from_epochs_minus_one = (
-                    (num_epochs - 1) * tokens_per_epoch - add_extra_token
-                ) // seq_length
+                                                            (num_epochs - 1) * tokens_per_epoch - add_extra_token
+                                                    ) // seq_length
                 last_epoch_num_samples = num_samples - num_samples_from_epochs_minus_one
                 assert last_epoch_num_samples >= 0, 'last epoch number of samples should be non-negative.'
                 num_samples_per_epoch = (tokens_per_epoch - add_extra_token) // seq_length
                 assert last_epoch_num_samples < (
-                    num_samples_per_epoch + 1
+                        num_samples_per_epoch + 1
                 ), 'last epoch number of samples exceeded max value.'
                 # If we have less than 80% of the samples for the last epoch,
                 # seperate out the epoch and treat it differently.
@@ -677,8 +677,8 @@ def _build_index_mappings(
     torch.distributed.all_reduce(counts, group=parallel_state.get_data_parallel_group())
     torch.distributed.all_reduce(counts, group=parallel_state.get_pipeline_model_parallel_group())
     assert counts[0].item() == (
-        torch.distributed.get_world_size()
-        // torch.distributed.get_world_size(group=parallel_state.get_tensor_model_parallel_group())
+            torch.distributed.get_world_size()
+            // torch.distributed.get_world_size(group=parallel_state.get_tensor_model_parallel_group())
     )
 
     if not exchange_indices_distributed or (torch.distributed.get_rank() == 0 and using_cached_indices):
@@ -729,7 +729,7 @@ def _build_doc_idx(documents, num_epochs, np_rng, separate_last_epoch, shuffle=T
     """Build an array with length = number-of-epochs * number-of-dcuments.
     Each index is mapped to a corresponding document."""
     if not separate_last_epoch or num_epochs == 1:
-        doc_idx = np.mgrid[0:num_epochs, 0 : len(documents)][1]
+        doc_idx = np.mgrid[0:num_epochs, 0: len(documents)][1]
         doc_idx[:] = documents
         doc_idx = doc_idx.reshape(-1)
         doc_idx = doc_idx.astype(np.int32)
@@ -787,7 +787,7 @@ def _build_sample_idx(sizes, doc_idx, seq_length, num_epochs, tokens_per_epoch, 
                 # Otherwise, start from the begining of the next document.
                 if doc_idx_index == (len(doc_idx) - 1):
                     assert (
-                        sample_index == num_samples
+                            sample_index == num_samples
                     ), F"sample_index={sample_index} and num_samples={num_samples} should be the same"
                     doc_offset = sizes[doc_idx[doc_idx_index]] - add_extra_token
                     break
@@ -822,3 +822,101 @@ def _build_shuffle_idx(num_samples, total_size, np_rng):
     np_rng.shuffle(shuffle_idx_last)
 
     return np.concatenate((shuffle_idx_first, shuffle_idx_last))
+
+
+## start: Inserted by LXH ##
+from functools import partial, lru_cache
+from datetime import datetime
+import bisect
+
+
+def _warmup_mmap_file(path):
+    with open(path, "rb") as stream:
+        while stream.read(100 * 1024 * 1024):
+            pass
+
+
+class MMapIndexedDataset(torch.utils.data.Dataset):
+    def __init__(self, path, pretrain_max_seq_len=2048, _bin_buffer_size_multiplier=4, dtype="int32"):
+        logging.warning(f"{datetime.now().strftime('%H:%M:%S')} Loading data from {path}...")
+        super().__init__()
+        self._path = path
+        self.pretrain_max_seq_len = pretrain_max_seq_len
+        self.dtype = dtype
+        # self._bin_buffer_size_multiplier = _bin_buffer_size_multiplier
+        # _warmup_mmap_file(path)
+        # self._bin_buffer_mmap = np.memmap(self._path, mode="r", order="C")
+        # self._bin_buffer = memoryview(self._bin_buffer_mmap)
+        # logging.warning(f"{datetime.now().strftime('%H:%M:%S')} loaded total {self.__len__()} samples...")
+
+        self.input_ids = np.memmap(path, dtype=self.dtype, mode='r').reshape(-1, pretrain_max_seq_len)
+
+        self.attention_mask = torch.tril(torch.ones((self.pretrain_max_seq_len, self.pretrain_max_seq_len))).unsqueeze(
+            0)
+        self.attention_mask = self.attention_mask < 0.5
+        self.loss_mask = torch.ones(self.pretrain_max_seq_len, dtype=torch.float)
+        self.loss_mask[-1] = 0.0
+        self.position_ids = torch.arange(self.pretrain_max_seq_len, dtype=torch.int64)
+
+    # def __del__(self):
+    #     self._bin_buffer_mmap._mmap.close()
+    #     del self._bin_buffer_mmap
+
+    def __len__(self):
+        # return int(len(self._bin_buffer_mmap) / self.pretrain_max_seq_len / self._bin_buffer_size_multiplier)
+        return len(self.input_ids)
+
+    @lru_cache(maxsize=8)
+    def __getitem__(self, ind):
+        # np_array = np.frombuffer(self._bin_buffer
+        #                          , dtype=self.dtype
+        #                          , count=self.pretrain_max_seq_len
+        #                          , offset=ind * self.pretrain_max_seq_len * self._bin_buffer_size_multiplier)
+        # tokens = torch.tensor(np_array, dtype=torch.long)[:-1].contiguous()
+        tokens = torch.tensor(self.input_ids[ind], dtype=torch.long)
+        labels = torch.roll(tokens, shifts=-1, dims=0)
+        labels[-1] = -100
+        return {'tokens': tokens,
+                'labels': labels,
+                'attention_mask': self.attention_mask,
+                'loss_mask': self.loss_mask,
+                'position_ids': self.position_ids,
+                }
+
+
+class ConcatDataset(torch.utils.data.Dataset):
+    def __init__(self, datasets):
+        super(ConcatDataset, self).__init__()
+        assert len(datasets) > 0, "datasets should not be an empty iterable"
+        self.datasets = list(datasets)
+        self.real_sizes = [len(d) for d in self.datasets]
+        self.cumulative_sizes = np.cumsum(self.real_sizes)
+        logging.warning(
+            f"{datetime.now().strftime('%H:%M:%S')} loaded total {len(self.cumulative_sizes)} datasets, {self.cumulative_sizes[-1]} samples...")
+
+    def __len__(self):
+        return self.cumulative_sizes[-1]
+
+    def __getitem__(self, idx):
+        dataset_idx, sample_idx = self._get_dataset_and_sample_index(idx)
+        sample = self.datasets[dataset_idx][sample_idx]
+        return sample
+
+    def _get_dataset_and_sample_index(self, idx: int):
+        dataset_idx = bisect.bisect_right(self.cumulative_sizes, idx)
+        if dataset_idx == 0:
+            sample_idx = idx
+        else:
+            sample_idx = idx - self.cumulative_sizes[dataset_idx - 1]
+        sample_idx = sample_idx % self.real_sizes[dataset_idx]  # no need this line??
+        return dataset_idx, sample_idx
+
+
+def custom_train_valid_test_datasets(data_prefix):
+    # TODO, taking into considerations of cfg.data configuration
+    train_ds = ConcatDataset([MMapIndexedDataset(file.strip()) for file in data_prefix['train']])
+    validation_ds = ConcatDataset([MMapIndexedDataset(file.strip()) for file in data_prefix['validation']])
+    test_ds = ConcatDataset([MMapIndexedDataset(file.strip()) for file in data_prefix['test']])
+    return train_ds, validation_ds, test_ds
+
+## end: inserted by LXH ##
