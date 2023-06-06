@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from nemo.core.optim.adafactor import Adafactor
+from nemo.core.optim.sophia import SophiaG
 from nemo.core.optim.lr_scheduler import (
     CosineAnnealing,
     InverseSquareRootAnnealing,

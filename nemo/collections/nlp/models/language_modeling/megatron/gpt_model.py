@@ -102,6 +102,43 @@ def post_language_model_processing(
         else:
             return loss
 
+# from nemo.collections.nlp.models.language_modeling.megatron.vocab_parallel_sample_cross_entropy import vocab_parallel_sample_cross_entropy
+def post_language_model_processing_sophia_hessian_update(
+        lm_output,
+        labels,
+        logit_weights,
+        parallel_output,
+        forward_method_parallel_output,
+        fp16_lm_cross_entropy,
+        sequence_parallel=False,
+        gradient_accumulation_fusion=False,
+):
+    # Output. Format is [s b h]
+    if forward_method_parallel_output is not None:
+        parallel_output = forward_method_parallel_output
+    async_tensor_model_parallel_allreduce = (
+            parallel_state.get_tensor_model_parallel_world_size() > 1 and not sequence_parallel
+    )
+    output = parallel_lm_logits(
+        lm_output,
+        logit_weights,
+        parallel_output=False,
+        sequence_parallel=sequence_parallel,
+        gradient_accumulation_fusion=gradient_accumulation_fusion,
+        async_tensor_model_parallel_allreduce=async_tensor_model_parallel_allreduce,
+    )
+
+    # TODO correct handling of amp
+    # TODO more efficient handling of sampling/loss calculation or use proper column parallel like vocab_parallel_sample_cross_entropy.py
+    sampled_labels = torch.distributions.Categorical(logits=output).sample()
+    loss = torch.nn.functional.cross_entropy(output.transpose(1, 2), sampled_labels, ignore_index=-1, reduction='none')
+
+    if labels is None:
+        # [s b h] -> [b s h]
+        return output.transpose(0, 1).contiguous()
+    else:
+        # [s b] -> [b, s]
+        return loss.transpose(0, 1).contiguous()
 
 class GPTModel(MegatronModule):
     """GPT-2 Language model."""
@@ -271,6 +308,7 @@ class GPTModel(MegatronModule):
         set_inference_key_value_memory=False,
         inference_max_sequence_len=None,
         checkpoint_activations_all_layers=None,
+        sophia_hessian_update=False,
     ):
         # input_ids: [b, s]
         # position_ids: [b, s]
@@ -288,7 +326,7 @@ class GPTModel(MegatronModule):
             checkpoint_activations_all_layers=checkpoint_activations_all_layers,
         )
 
-        if self.post_process:
+        if self.post_process and not sophia_hessian_update:
             return post_language_model_processing(
                 lm_output,
                 labels,
@@ -300,6 +338,19 @@ class GPTModel(MegatronModule):
                 forward_method_parallel_output,
                 self.fp16_lm_cross_entropy,
                 return_logits=encoder_input is not None,
+                sequence_parallel=self.sequence_parallel,
+                gradient_accumulation_fusion=self.gradient_accumulation_fusion,
+            )
+        elif self.post_process and sophia_hessian_update:
+            return post_language_model_processing_sophia_hessian_update(
+                lm_output,
+                labels,
+                self.language_model.output_layer.weight
+                if not self.share_embeddings_and_output_weights
+                else self.word_embeddings_weight(),
+                self.parallel_output,
+                forward_method_parallel_output,
+                self.fp16_lm_cross_entropy,
                 sequence_parallel=self.sequence_parallel,
                 gradient_accumulation_fusion=self.gradient_accumulation_fusion,
             )

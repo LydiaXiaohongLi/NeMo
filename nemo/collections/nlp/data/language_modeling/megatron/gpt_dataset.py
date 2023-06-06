@@ -825,6 +825,7 @@ def _build_shuffle_idx(num_samples, total_size, np_rng):
 
 
 ## start: Inserted by LXH ##
+# TODO multiple process doesnt work with memoryview, but single process (num_workers=0) or memoryview is a bit slower
 from functools import partial, lru_cache
 from datetime import datetime
 import bisect
@@ -838,19 +839,16 @@ def _warmup_mmap_file(path):
 
 class MMapIndexedDataset(torch.utils.data.Dataset):
     def __init__(self, path, pretrain_max_seq_len=2048, _bin_buffer_size_multiplier=4, dtype="int32"):
-        logging.warning(f"{datetime.now().strftime('%H:%M:%S')} Loading data from {path}...")
+        print(f"{datetime.now().strftime('%H:%M:%S')}, Loading data from {path}...")
         super().__init__()
         self._path = path
         self.pretrain_max_seq_len = pretrain_max_seq_len
+        self._bin_buffer_size_multiplier = _bin_buffer_size_multiplier
         self.dtype = dtype
-        # self._bin_buffer_size_multiplier = _bin_buffer_size_multiplier
-        # _warmup_mmap_file(path)
-        # self._bin_buffer_mmap = np.memmap(self._path, mode="r", order="C")
-        # self._bin_buffer = memoryview(self._bin_buffer_mmap)
-        # logging.warning(f"{datetime.now().strftime('%H:%M:%S')} loaded total {self.__len__()} samples...")
-
-        self.input_ids = np.memmap(path, dtype=self.dtype, mode='r').reshape(-1, pretrain_max_seq_len)
-
+        _warmup_mmap_file(path)
+        self._bin_buffer_mmap = np.memmap(self._path, mode="r", order="C")
+        self._bin_buffer = memoryview(self._bin_buffer_mmap)
+        print(f"{datetime.now().strftime('%H:%M:%S')}, loaded total {self.__len__()} samples...")
         self.attention_mask = torch.tril(torch.ones((self.pretrain_max_seq_len, self.pretrain_max_seq_len))).unsqueeze(
             0)
         self.attention_mask = self.attention_mask < 0.5
@@ -858,22 +856,20 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         self.loss_mask[-1] = 0.0
         self.position_ids = torch.arange(self.pretrain_max_seq_len, dtype=torch.int64)
 
-    # def __del__(self):
-    #     self._bin_buffer_mmap._mmap.close()
-    #     del self._bin_buffer_mmap
+    def __del__(self):
+        self._bin_buffer_mmap._mmap.close()
+        del self._bin_buffer_mmap
 
     def __len__(self):
-        # return int(len(self._bin_buffer_mmap) / self.pretrain_max_seq_len / self._bin_buffer_size_multiplier)
-        return len(self.input_ids)
+        return int(len(self._bin_buffer_mmap) / self.pretrain_max_seq_len / self._bin_buffer_size_multiplier)
 
     @lru_cache(maxsize=8)
     def __getitem__(self, ind):
-        # np_array = np.frombuffer(self._bin_buffer
-        #                          , dtype=self.dtype
-        #                          , count=self.pretrain_max_seq_len
-        #                          , offset=ind * self.pretrain_max_seq_len * self._bin_buffer_size_multiplier)
-        # tokens = torch.tensor(np_array, dtype=torch.long)[:-1].contiguous()
-        tokens = torch.tensor(self.input_ids[ind], dtype=torch.long)
+        np_array = np.frombuffer(self._bin_buffer
+                                 , dtype=self.dtype
+                                 , count=self.pretrain_max_seq_len
+                                 , offset=ind * self.pretrain_max_seq_len * self._bin_buffer_size_multiplier)
+        tokens = torch.tensor(np_array, dtype=torch.long)
         labels = torch.roll(tokens, shifts=-1, dims=0)
         labels[-1] = -100
         return {'tokens': tokens,
@@ -885,19 +881,21 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
 
 
 class ConcatDataset(torch.utils.data.Dataset):
-    def __init__(self, datasets):
+    def __init__(self, datasets, offset=0):
         super(ConcatDataset, self).__init__()
         assert len(datasets) > 0, "datasets should not be an empty iterable"
         self.datasets = list(datasets)
         self.real_sizes = [len(d) for d in self.datasets]
         self.cumulative_sizes = np.cumsum(self.real_sizes)
-        logging.warning(
-            f"{datetime.now().strftime('%H:%M:%S')} loaded total {len(self.cumulative_sizes)} datasets, {self.cumulative_sizes[-1]} samples...")
+        self.offset = offset
+        print(
+            f"{datetime.now().strftime('%H:%M:%S')}, loaded total {len(self.cumulative_sizes)} datasets, {self.cumulative_sizes[-1]} samples...")
 
     def __len__(self):
         return self.cumulative_sizes[-1]
 
     def __getitem__(self, idx):
+        idx = idx + self.offset
         dataset_idx, sample_idx = self._get_dataset_and_sample_index(idx)
         sample = self.datasets[dataset_idx][sample_idx]
         return sample
@@ -911,6 +909,81 @@ class ConcatDataset(torch.utils.data.Dataset):
         sample_idx = sample_idx % self.real_sizes[dataset_idx]  # no need this line??
         return dataset_idx, sample_idx
 
+
+# class MMapIndexedDataset(torch.utils.data.Dataset):
+#     def __init__(self, path, pretrain_max_seq_len=2048, _bin_buffer_size_multiplier=4, dtype="int32"):
+#         logging.warning(f"{datetime.now().strftime('%H:%M:%S')} Loading data from {path}...")
+#         super().__init__()
+#         self._path = path
+#         self.pretrain_max_seq_len = pretrain_max_seq_len
+#         self.dtype = dtype
+#         # self._bin_buffer_size_multiplier = _bin_buffer_size_multiplier
+#         # _warmup_mmap_file(path)
+#         # self._bin_buffer_mmap = np.memmap(self._path, mode="r", order="C")
+#         # self._bin_buffer = memoryview(self._bin_buffer_mmap)
+#         # logging.warning(f"{datetime.now().strftime('%H:%M:%S')} loaded total {self.__len__()} samples...")
+
+#         self.input_ids = np.memmap(path, dtype=self.dtype, mode='r').reshape(-1, pretrain_max_seq_len)
+
+#         self.attention_mask = torch.tril(torch.ones((self.pretrain_max_seq_len, self.pretrain_max_seq_len))).unsqueeze(
+#             0)
+#         self.attention_mask = self.attention_mask < 0.5
+#         self.loss_mask = torch.ones(self.pretrain_max_seq_len, dtype=torch.float)
+#         self.loss_mask[-1] = 0.0
+#         self.position_ids = torch.arange(self.pretrain_max_seq_len, dtype=torch.int64)
+
+#     # def __del__(self):
+#     #     self._bin_buffer_mmap._mmap.close()
+#     #     del self._bin_buffer_mmap
+
+#     def __len__(self):
+#         # return int(len(self._bin_buffer_mmap) / self.pretrain_max_seq_len / self._bin_buffer_size_multiplier)
+#         return len(self.input_ids)
+
+#     @lru_cache(maxsize=8)
+#     def __getitem__(self, ind):
+#         # np_array = np.frombuffer(self._bin_buffer
+#         #                          , dtype=self.dtype
+#         #                          , count=self.pretrain_max_seq_len
+#         #                          , offset=ind * self.pretrain_max_seq_len * self._bin_buffer_size_multiplier)
+#         # tokens = torch.tensor(np_array, dtype=torch.long)[:-1].contiguous()
+#         tokens = torch.tensor(self.input_ids[ind], dtype=torch.long)
+#         labels = torch.roll(tokens, shifts=-1, dims=0)
+#         labels[-1] = -100
+#         return {'tokens': tokens,
+#                 'labels': labels,
+#                 'attention_mask': self.attention_mask,
+#                 'loss_mask': self.loss_mask,
+#                 'position_ids': self.position_ids,
+#                 }
+
+
+# class ConcatDataset(torch.utils.data.Dataset):
+#     def __init__(self, datasets):
+#         super(ConcatDataset, self).__init__()
+#         assert len(datasets) > 0, "datasets should not be an empty iterable"
+#         self.datasets = list(datasets)
+#         self.real_sizes = [len(d) for d in self.datasets]
+#         self.cumulative_sizes = np.cumsum(self.real_sizes)
+#         logging.warning(
+#             f"{datetime.now().strftime('%H:%M:%S')} loaded total {len(self.cumulative_sizes)} datasets, {self.cumulative_sizes[-1]} samples...")
+
+#     def __len__(self):
+#         return self.cumulative_sizes[-1]
+
+#     def __getitem__(self, idx):
+#         dataset_idx, sample_idx = self._get_dataset_and_sample_index(idx)
+#         sample = self.datasets[dataset_idx][sample_idx]
+#         return sample
+
+#     def _get_dataset_and_sample_index(self, idx: int):
+#         dataset_idx = bisect.bisect_right(self.cumulative_sizes, idx)
+#         if dataset_idx == 0:
+#             sample_idx = idx
+#         else:
+#             sample_idx = idx - self.cumulative_sizes[dataset_idx - 1]
+#         sample_idx = sample_idx % self.real_sizes[dataset_idx]  # no need this line??
+#         return dataset_idx, sample_idx
 
 def custom_train_valid_test_datasets(data_prefix):
     # TODO, taking into considerations of cfg.data configuration

@@ -409,6 +409,59 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
 
         return loss_mean
 
+    def sophia_hessian_estimate_step(self, dataloader_iter):
+        tensor_shape = [self.cfg.encoder_seq_length, self.cfg.micro_batch_size, self.cfg.hidden_size]
+
+        # handle asynchronous grad reduction
+        no_sync_func = None
+        grad_sync_func = None
+        param_sync_func = None
+        forward_only = False
+
+        # run forward and backwards passes for an entire global batch
+        # we do this inside training_step to support pipeline parallelism
+        fwd_bwd_function = get_forward_backward_func()
+
+        # TODO @akhattar: add num_micro_batches_with_partial_activation_checkpoints when ready
+        fwd_bwd_function(
+            forward_step_func=self.get_forward_output_for_hessian_update(),
+            data_iterator=self._make_data_iterator_list(dataloader_iter),
+            model=self.model,
+            num_microbatches=get_num_microbatches(),
+            forward_only=forward_only,
+            tensor_shape=tensor_shape,
+            dtype=self.autocast_dtype,
+            grad_scaler=self.trainer.precision_plugin.scaler.scale if self.cfg.precision == 16 else None,
+            sequence_parallel=self.cfg.get('sequence_parallel', False),
+            enable_autocast=self.enable_autocast,
+            no_sync_func=no_sync_func,
+            grad_sync_func=grad_sync_func,
+            param_sync_func=param_sync_func,
+        )
+
+        if self.megatron_amp_o2:
+            # when using pipeline parallelism grads must be all-reduced after the pipeline (not asynchronously)
+            if self.cfg.get('pipeline_model_parallel_size', 1) > 1 or self.cfg.get('sequence_parallel', False):
+                # TODO: to understand MainParamsOptimizer, async/amp??
+                # main grads are stored in the MainParamsOptimizer wrapper
+                self._optimizer.allreduce_main_grads()
+        else:
+            # async grad allreduce is not currently implemented for O1/autocasting mixed precision training
+            # so we all-reduce gradients after the pipeline
+            self.allreduce_gradients()  # @sangkug we think this is causing memory to blow up (hurts perf)
+
+        if self.cfg.get('pipeline_model_parallel_size', 1) > 1 and self.cfg.get(
+                'share_embeddings_and_output_weights', True
+        ):
+            # when using pipeline parallelism the first and last stage must keep embeddings in sync
+            self.allreduce_first_last_embeddings()
+
+        self._optimizer.update_hessian()
+        self._optimizer.zero_grad(set_to_none=True)
+
+        return
+
+
     def training_step(self, dataloader_iter, batch_idx):
         """
             We pass the dataloader iterator function to the micro-batch scheduler.
@@ -500,6 +553,18 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             )
 
         return loss_mean
+
+    def on_train_batch_end(self, out, dataloader_iter, batch_idx):
+        """
+            We pass the dataloader iterator function to the micro-batch scheduler.
+            The input batch to each micro-batch is fetched using the dataloader function
+            in the micro-batch fwd function.
+        """
+        # TODO calculate consumed samples by hessian updates if any, for deterministic data loading
+        if (self.cfg.get('optim').get('name', '') == 'sophia') and (
+                (self.trainer.global_step + 1) % self.cfg.get('hessian_update_interval', 1) == 0):
+            self.sophia_hessian_estimate_step(dataloader_iter)
+
 
     def backward(self, *args, **kwargs):
         """ LightningModule hook to do backward.
@@ -731,6 +796,44 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             return output_tensor, id_func
 
         return fwd_output_only_func
+
+    def get_forward_output_for_hessian_update(self):
+        def forward_output_for_hessian_update(dataloader_iter, model, checkpoint_activations_all_layers=None):
+            batch = next(dataloader_iter)
+
+            required_keys = set()
+            if parallel_state.get_pipeline_model_parallel_world_size() == 1:
+                required_keys.update(batch.keys())
+            else:
+                required_keys.add('attention_mask')
+                if parallel_state.is_pipeline_first_stage():
+                    required_keys.update(('tokens', 'position_ids'))
+                if parallel_state.is_pipeline_last_stage():
+                    required_keys.update(('labels', 'loss_mask'))
+            if self.get_attention_mask_from_fusion:
+                required_keys.remove('attention_mask')
+            batch = {key: val.cuda(non_blocking=True) if key in required_keys else None for key, val in batch.items()}
+
+            # Model forward pass
+            output_tensor = model(
+                batch['tokens'],
+                batch['position_ids'],
+                batch['attention_mask'],
+                batch['labels'],
+                checkpoint_activations_all_layers=checkpoint_activations_all_layers,
+                sophia_hessian_update=True
+            )
+
+            def loss_func(output_tensor):
+                # Loss for a micro-batch (ub)
+                loss_for_ub = self.loss_func(batch['loss_mask'], output_tensor)
+                reduced_loss = average_losses_across_data_parallel_group([loss_for_ub])
+                return loss_for_ub, {'avg': reduced_loss}
+
+            return output_tensor, loss_func
+
+        return forward_output_for_hessian_update
+
 
     def validation_step(self, dataloader_iter, batch_idx):
         """

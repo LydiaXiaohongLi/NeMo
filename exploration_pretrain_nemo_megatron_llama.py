@@ -102,5 +102,5 @@ if __name__ == '__main__':
     # torch.backends.cuda.matmul.allow_tf32 = True
     # torch.backends.cudnn.allow_tf32 = True
     # tf32 option 2 (?)
-    # torch.set_float32_matmul_precision('high')
+    torch.set_float32_matmul_precision('high')
     main()
