@@ -6,7 +6,7 @@ from typing import List, Optional
 
 
 class SophiaG(Optimizer):
-    def __init__(self, params, lr=1e-4, betas=(0.965, 0.99), rho=0.04,
+    def __init__(self, params, lr=1e-4, betas=(0.965, 0.99), rho=0.1,
                  weight_decay=1e-1, *, maximize: bool = False,
                  capturable: bool = False):
         if not 0.0 <= lr:
@@ -56,7 +56,7 @@ class SophiaG(Optimizer):
                 state['hessian'].mul_(beta2).addcmul_(p.grad, p.grad, value=1 - beta2)
 
     @torch.no_grad()
-    def step(self, closure=None, bs=5120):
+    def step(self, closure=None, bs=2048*2048): # TODO: hard coded. (global_batch_size * seq_length)
         loss = None
         if closure is not None:
             with torch.enable_grad():
@@ -187,6 +187,12 @@ def _single_tensor_sophiag(params: List[Tensor],
 
         if capturable:
             step = step_t
+
+            # bias_correction1 = 1 - beta1 ** step
+            # bias_correction2 = 1 - beta2 ** (step//10+1) # TODO hard coded
+            # exp_avg = exp_avg / bias_correction1
+            # hess = hess / bias_correction2
+
             step_size = lr
             step_size_neg = step_size.neg()
 
@@ -194,6 +200,12 @@ def _single_tensor_sophiag(params: List[Tensor],
             param.addcmul_(exp_avg.sign(), ratio, value=step_size_neg)
         else:
             step = step_t.item()
+
+            # bias_correction1 = 1 - beta1 ** step
+            # bias_correction2 = 1 - beta2 ** (step//10+1) # TODO hard coded
+            # exp_avg = exp_avg / bias_correction1
+            # hess = hess / bias_correction2
+
             step_size_neg = - lr
 
             ratio = (exp_avg.abs() / (rho * bs * hess + 1e-15)).clamp(None, 1)

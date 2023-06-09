@@ -461,7 +461,6 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
 
         return
 
-
     def training_step(self, dataloader_iter, batch_idx):
         """
             We pass the dataloader iterator function to the micro-batch scheduler.
@@ -560,11 +559,68 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             The input batch to each micro-batch is fetched using the dataloader function
             in the micro-batch fwd function.
         """
+        if self.cfg.get('log_optimizer_state', False):
+            num_optim_states = len(self._optimizer.state_dict()['state'])
+            num_param = torch.sum(torch.tensor([p.numel() for p in self.model.parameters()])).cuda()
+            param_norm = (torch.sum(torch.tensor([p.data.norm(2) ** 2 for p in self.model.parameters()])) ** 0.5).cuda()
+
+            torch.distributed.all_reduce(num_param, op=torch.distributed.ReduceOp.SUM,
+                                         group=parallel_state.get_model_parallel_group())
+            torch.distributed.all_reduce(param_norm, op=torch.distributed.ReduceOp.SUM,
+                                         group=parallel_state.get_model_parallel_group())
+            self.log('param_norm', param_norm, prog_bar=True, rank_zero_only=True, batch_size=1, )
+            self.log('num_param', num_param, prog_bar=True, rank_zero_only=True, batch_size=1, )
+
+            if (self.cfg.get('optim').get('name', '') == 'sophia'):
+                hessian_norm = 0
+                exp_avg_norm = 0
+                clamp_param = 0
+                rho = self._optimizer.param_groups[0]['rho']
+                bs = self.cfg.get('max_position_embeddings') * self.cfg.get('global_batch_size')
+                for i in range(num_optim_states):
+                    exp_avg = self._optimizer.state_dict()['state'][i]['exp_avg'].detach()
+                    hessian = self._optimizer.state_dict()['state'][i]['hessian'].detach()
+                    exp_avg_norm += (exp_avg.norm(2)) ** 2
+                    hessian_norm += (hessian.norm(2)) ** 2
+                    clamp_param += torch.sum((exp_avg.abs() / (rho * bs * hessian + 1e-15)) > 1)
+
+                hessian_norm = hessian_norm ** 0.5
+                exp_avg_norm = exp_avg_norm ** 0.5
+                clamp_param = clamp_param
+                torch.distributed.all_reduce(hessian_norm, op=torch.distributed.ReduceOp.SUM,
+                                             group=parallel_state.get_model_parallel_group())
+                torch.distributed.all_reduce(exp_avg_norm, op=torch.distributed.ReduceOp.SUM,
+                                             group=parallel_state.get_model_parallel_group())
+                torch.distributed.all_reduce(clamp_param, op=torch.distributed.ReduceOp.SUM,
+                                             group=parallel_state.get_model_parallel_group())
+
+                self.log('exp_avg_norm', exp_avg_norm, prog_bar=True, rank_zero_only=True, batch_size=1, )
+                self.log('hessian_norm', hessian_norm, prog_bar=True, rank_zero_only=True, batch_size=1, )
+                self.log('clamp_param', clamp_param, prog_bar=True, rank_zero_only=True, batch_size=1, )
+
+            if (self.cfg.get('optim').get('name', '') in (['adam', 'adamw', 'fused_adam'])):
+                exp_avg_norm = 0
+                exp_avg_sq_norm = 0
+                for i in range(num_optim_states):
+                    exp_avg = self._optimizer.state_dict()['state'][i]['exp_avg'].detach()
+                    exp_avg_sq = self._optimizer.state_dict()['state'][i]['exp_avg_sq'].detach()
+                    exp_avg_norm += (exp_avg.norm(2)) ** 2
+                    exp_avg_sq_norm += (exp_avg_sq.norm(2)) ** 2
+
+                exp_avg_norm = exp_avg_norm ** 0.5
+                exp_avg_sq_norm = exp_avg_sq_norm ** 0.5
+                torch.distributed.all_reduce(exp_avg_norm, op=torch.distributed.ReduceOp.SUM,
+                                             group=parallel_state.get_model_parallel_group())
+                torch.distributed.all_reduce(exp_avg_sq_norm, op=torch.distributed.ReduceOp.SUM,
+                                             group=parallel_state.get_model_parallel_group())
+
+                self.log('exp_avg_norm', exp_avg_norm, prog_bar=True, rank_zero_only=True, batch_size=1, )
+                self.log('exp_avg_sq_norm', exp_avg_sq_norm, prog_bar=True, rank_zero_only=True, batch_size=1, )
+
         # TODO calculate consumed samples by hessian updates if any, for deterministic data loading
         if (self.cfg.get('optim').get('name', '') == 'sophia') and (
-                (self.trainer.global_step + 1) % self.cfg.get('hessian_update_interval', 1) == 0):
+                (self.trainer.global_step) % self.cfg.get('hessian_update_interval', 1) == 0):
             self.sophia_hessian_estimate_step(dataloader_iter)
-
 
     def backward(self, *args, **kwargs):
         """ LightningModule hook to do backward.
@@ -833,7 +889,6 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             return output_tensor, loss_func
 
         return forward_output_for_hessian_update
-
 
     def validation_step(self, dataloader_iter, batch_idx):
         """

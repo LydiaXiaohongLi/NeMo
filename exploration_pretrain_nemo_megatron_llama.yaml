@@ -14,7 +14,7 @@ trainer:
   gradient_clip_val: 1.0
 
 exp_manager:
-  explicit_log_dir: /home/team/xiaohong/llama_demo/models/${exp_manager.wandb_logger_kwargs.project}-nemo
+  explicit_log_dir: /dfs/models/exploration_pretraining/${exp_manager.wandb_logger_kwargs.project}-nemo
   exp_dir: null
   name: megatron_llama
   resume_if_exists: True
@@ -161,6 +161,7 @@ model:
       max_steps: 50000
 
   hessian_update_interval: 10
+  log_optimizer_state: False
 
   data:
     data_impl: mmap
@@ -175,107 +176,8 @@ model:
     index_mapping_dir: null # path to save index mapping .npy files, by default will save in the same location as data_prefix
     data_prefix: # Should be weight path weight path... for a blended dataset
       train:
-      - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard0_part0.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard0_part1.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard0_part2.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard0_part3.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard0_part4.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard1_part0.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard1_part1.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard1_part2.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard1_part3.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard1_part4.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard2_part0.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard2_part1.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard2_part2.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard2_part3.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard2_part4.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard3_part0.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard3_part1.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard3_part2.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard3_part3.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard3_part4.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard4_part0.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard4_part1.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard4_part2.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard4_part3.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard4_part4.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard5_part0.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard5_part1.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard5_part2.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard5_part3.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard5_part4.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard6_part0.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard6_part1.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard6_part2.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard6_part3.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard6_part4.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard7_part0.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard7_part1.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard7_part2.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard7_part3.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard7_part4.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard8_part0.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard8_part1.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard8_part2.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard8_part3.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard8_part4.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard9_part0.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard9_part1.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard9_part2.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard9_part3.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard9_part4.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard10_part0.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard10_part1.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard10_part2.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard10_part3.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard10_part4.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard11_part0.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard11_part1.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard11_part2.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard11_part3.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard11_part4.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard12_part0.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard12_part1.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard12_part2.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard12_part3.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard12_part4.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard13_part0.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard13_part1.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard13_part2.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard13_part3.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard13_part4.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard14_part0.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard14_part1.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard14_part2.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard14_part3.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard14_part4.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard15_part0.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard15_part1.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard15_part2.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard15_part3.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard15_part4.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard16_part0.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard16_part1.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard16_part2.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard16_part3.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard16_part4.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard17_part0.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard17_part1.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard17_part2.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard17_part3.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard17_part4.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard18_part0.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard18_part1.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard18_part2.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard18_part3.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard18_part4.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard19_part0.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard19_part1.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard19_part2.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard19_part3.mmap
-      # - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard19_part4.mmap
+      - /dfs/datasets/c4_en_tokenized/llama_tokenized_shard0_part0.mmap
       validation:
-      - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard0_part4.mmap
+      - dfs/datasets/c4_en_tokenized/llama_tokenized_shard0_part0.mmap
       test:
-      - /home/team/xiaohong/llama_demo/data/tokenized_corpus_c4_shard0_part4.mmap
+      - dfs/datasets/c4_en_tokenized/llama_tokenized_shard0_part0.mmap
