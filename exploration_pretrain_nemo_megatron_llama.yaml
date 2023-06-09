@@ -14,7 +14,7 @@ trainer:
   gradient_clip_val: 1.0
 
 exp_manager:
-  explicit_log_dir: /dfs/models/exploration_pretraining/${exp_manager.wandb_logger_kwargs.project}-nemo
+  explicit_log_dir: /dfs/models/exploration_pretraining/${exp_manager.wandb_logger_kwargs.name}
   exp_dir: null
   name: megatron_llama
   resume_if_exists: True
@@ -37,8 +37,8 @@ exp_manager:
   create_wandb_logger: False
   wandb_logger_kwargs:
     project: llama-13b-c4-pretrain
-    name: ${exp_manager.wandb_logger_kwargs.project}
-    group: ${exp_manager.wandb_logger_kwargs.project}-nemo-${trainer.num_nodes}node-tp${model.tensor_model_parallel_size}-pp${model.pipeline_model_parallel_size}-sp${model.sequence_parallel}-gc${model.activations_checkpoint_granularity}${model.activations_checkpoint_method}-bs${model.global_batch_size}-mbs${model.micro_batch_size}-${model.normalization}-amp_02${model.megatron_amp_O2}-tf32True-${model.position_embedding_type}-${model.optim.name}
+    group: experiment-xxx
+    name: nemo-${trainer.num_nodes}node-tp${model.tensor_model_parallel_size}-pp${model.pipeline_model_parallel_size}-sp${model.sequence_parallel}-gc${model.activations_checkpoint_granularity}${model.activations_checkpoint_method}-bs${model.global_batch_size}-mbs${model.micro_batch_size}-${model.normalization}-amp_02${model.megatron_amp_O2}-tf32True-${model.position_embedding_type}-${model.optim.name}
     job_type: exploration_memory_speed_profile
     config:
       tp: ${model.tensor_model_parallel_size}
@@ -178,6 +178,6 @@ model:
       train:
       - /dfs/datasets/c4_en_tokenized/llama_tokenized_shard0_part0.mmap
       validation:
-      - dfs/datasets/c4_en_tokenized/llama_tokenized_shard0_part0.mmap
+      - /dfs/datasets/c4_en_tokenized/llama_tokenized_shard0_part0.mmap
       test:
-      - dfs/datasets/c4_en_tokenized/llama_tokenized_shard0_part0.mmap
+      - /dfs/datasets/c4_en_tokenized/llama_tokenized_shard0_part0.mmap
